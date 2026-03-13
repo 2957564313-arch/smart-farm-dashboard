@@ -1,62 +1,62 @@
-﻿# 智慧农业监控台
+# Smart Farm Dashboard
 
-这是一个可以直接放在电脑上运行的本地网站，适合做农业种植相关的 WiFi 数据监控。
-设备端通过同一个局域网把传感器数据上传到电脑，网页端实时显示：
+> 零依赖、开箱即用的局域网智慧农业监控台 — 适用于 ESP32 + Node.js 课程项目与快速原型验证。
 
-- 光照强度
-- 土壤水分
-- 空气温度
-- 空气湿度
-- 土壤温度
-- 设备电量和 WiFi 信号
+[![Version](https://img.shields.io/badge/version-v0.1.0-blue)]()
+[![Node](https://img.shields.io/badge/node-%3E%3D14-green)]()
+[![License](https://img.shields.io/badge/license-MIT-brightgreen)]()
 
-同时网页也能把控制命令发回设备，比如：
+---
 
-- 开启或关闭水泵
-- 开启或关闭补光灯
-- 开启或关闭风扇
-- 切换自动 / 手动模式
-- 下发目标土壤水分
+## 功能一览
 
-## 1. 项目结构
+| 实时采集 | 远程控制 |
+|---------|---------|
+| 光照强度 | 水泵开关 |
+| 土壤水分 | 补光灯开关 |
+| 空气温度 | 风扇开关 |
+| 空气湿度 | 自动 / 手动模式切换 |
+| 土壤温度 | 下发目标土壤水分 |
+| 设备电量 & WiFi 信号 | |
 
-- `server.js`: 本地 Node.js 服务器，负责网页、接口、实时推送
-- `public/index.html`: 农业监控网页
-- `public/styles.css`: 页面样式
-- `public/app.js`: 前端逻辑
-- `examples/esp32_smart_farm_demo.ino`: ESP32 接入示例
+## 目录结构
 
-## 2. 启动方式
+```text
+smart-farm-dashboard/
+├── server.js                            # Node.js 服务器（HTTP API + SSE 推送）
+├── package.json                         # 项目元信息 & 启动脚本
+├── public/
+│   ├── index.html                       # 监控台页面
+│   ├── styles.css                       # 页面样式
+│   └── app.js                           # 前端逻辑
+└── examples/
+    └── esp32_smart_farm_demo.ino        # ESP32 接入示例
+```
 
-在 `C:\Users\29575\Desktop\smart-farm-dashboard` 目录运行：
+## 快速开始
 
-```powershell
+```bash
+# 1. 进入项目目录
+cd smart-farm-dashboard
+
+# 2. 启动服务器（无需 npm install）
 node server.js
+
+# 3. 打开浏览器
+#    本机访问    → http://localhost:3000
+#    局域网访问  → http://<你的电脑IP>:3000
 ```
 
-也可以运行：
+只要手机、ESP32、电脑连的是同一个 WiFi，就能访问网页和接口。
 
-```powershell
-npm.cmd start
-```
+## 设备接入
 
-启动后浏览器访问：
-
-- `http://localhost:3000`
-- 或者 `http://你的电脑局域网IP:3000`
-
-只要手机、ESP32、电脑连的是同一个 WiFi，就能访问这个网页和接口。
-
-## 3. 设备接入方式
-
-设备上传数据接口：
+### 上报传感器数据
 
 ```text
 POST /api/sensors
 Content-Type: application/json
 ```
-
-示例 JSON：
 
 ```json
 {
@@ -77,7 +77,7 @@ Content-Type: application/json
 }
 ```
 
-设备拉取待执行命令：
+### 拉取待执行命令
 
 ```text
 GET /api/device/commands.txt?deviceId=esp32-farm-01
@@ -91,40 +91,41 @@ growLight=off
 targetSoilMoisture=65
 ```
 
-设备每次拉取后，服务器会把这批命令从队列里清掉。
+每次拉取后，服务器会把这批命令从队列里清掉。
 
-## 4. 网页调试
+## 实现原理
 
-如果你现在还没有接硬件，网页里有一个“生成演示数据”按钮，可以模拟上传农业传感器数据，方便先看页面效果。
+```
+ESP32                        Server (Node.js)                   Browser
+  │  POST /api/sensors ──────▶│                                    │
+  │                            │── SSE push ──────────────────────▶│
+  │                            │◀── POST /api/device/command ──────│
+  │  GET  /commands.txt ──────▶│                                    │
+```
 
-## 5. 实现原理
+1. ESP32 连接 WiFi，定时上报光照、土壤水分等数据。
+2. 服务器通过 **SSE** 实时推送给网页。
+3. 网页点击按钮 → 服务器将命令放入设备队列。
+4. ESP32 定时拉取命令并执行。
 
-这套方案采用的是“HTTP 上报 + HTTP 拉取命令 + SSE 实时刷新网页”：
+**优点**：零第三方依赖、局域网即跑、后续可平滑升级为 MQTT / WebSocket。
 
-1. ESP32 连接 WiFi。
-2. ESP32 定时把光照、土壤水分等数据发给电脑上的服务器。
-3. 服务器把新数据实时推送给网页。
-4. 网页点击按钮后，服务器把命令放进设备命令队列。
-5. ESP32 定时拉取命令并执行。
+## ESP32 使用说明
 
-这个方案的优点是：
+示例程序：`examples/esp32_smart_farm_demo.ino`
 
-- 不依赖第三方库，电脑直接能跑
-- 很适合局域网实验和课程项目
-- 后续你可以很容易升级成 MQTT 或 WebSocket 方案
+需要修改的配置：
 
-## 6. ESP32 使用说明
+- `WIFI_SSID` / `WIFI_PASSWORD` — WiFi 名称和密码
+- `SERVER_HOST` — 运行 server.js 的电脑局域网 IP
+- 传感器引脚定义 & 土壤湿度映射校准参数
 
-示例程序在：
+本项目配套 **ESP32-WROOM-E**；ESP8266 等其他模块同样可用，改设备端代码即可。
 
-- `C:\Users\29575\Desktop\smart-farm-dashboard\examples\esp32_smart_farm_demo.ino`
+## 调试
 
-你需要修改的地方：
+网页内置 **"生成演示数据"** 按钮，无需硬件即可预览完整界面效果。
 
-- `WIFI_SSID`
-- `WIFI_PASSWORD`
-- `SERVER_HOST`
-- 传感器引脚定义
-- 土壤湿度映射校准参数
+---
 
-本项目配套 ESP32-WROOM-E 模块。如果你的模块是 ESP8266 或其他型号，接口也可以继续用，改设备端程序就行。
+**v0.1.0** · 初始发布
