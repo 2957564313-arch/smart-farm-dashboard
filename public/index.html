@@ -1,0 +1,385 @@
+﻿<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>智能农业网页控制台</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <header class="app-header panel">
+        <div class="header-copy">
+          <p class="eyebrow">SMART IRRIGATION CONTROL</p>
+          <h1>智能农业网页控制台</h1>
+          <p class="header-note">
+            实时数据卡片、参数配置、手动控制、风险提示、建议输出、历史曲线与运行日志
+          </p>
+        </div>
+
+        <div class="header-actions">
+          <button id="demoButton" class="button button-accent" type="button">生成演示数据</button>
+          <span id="deviceStatusBadge" class="status-chip chip-online">设备在线</span>
+          <span id="commandCountBadge" class="status-chip chip-muted">待执行命令 0</span>
+        </div>
+      </header>
+
+      <section class="summary-grid">
+        <article class="panel summary-card summary-card-node">
+          <span class="summary-label">在线节点</span>
+          <strong id="deviceName">ESP32-WROOM-E 边缘控制节点</strong>
+          <small id="deviceId">esp32-farm-01</small>
+        </article>
+
+        <article class="panel summary-card">
+          <span class="summary-label">当前模式</span>
+          <strong id="liveModeValue">自动模式</strong>
+          <small>自动 / 手动切换</small>
+        </article>
+
+        <article class="panel summary-card">
+          <span class="summary-label">风扇 PWM</span>
+          <strong id="fanPwmQuickValue">0%</strong>
+          <small>通风执行强度</small>
+        </article>
+
+        <article class="panel summary-card">
+          <span class="summary-label">补光 PWM</span>
+          <strong id="growLightPwmQuickValue">65%</strong>
+          <small>补光输出强度</small>
+        </article>
+
+        <article class="panel summary-card">
+          <span class="summary-label">采样周期</span>
+          <strong id="sampleIntervalValue">5 秒</strong>
+          <small>设备采样 / 上传节奏</small>
+        </article>
+      </section>
+
+      <div class="dashboard-grid">
+        <aside class="sidebar">
+          <section class="panel side-card">
+            <div class="panel-head">
+              <div>
+                <p class="eyebrow">设备状态</p>
+                <h2>节点信息</h2>
+              </div>
+            </div>
+
+            <div class="info-list">
+              <div class="info-row">
+                <span>局域网地址</span>
+                <strong id="networkUrls">加载中...</strong>
+              </div>
+              <div class="info-row">
+                <span>最后上报</span>
+                <strong id="lastSeen">刚刚</strong>
+              </div>
+              <div class="info-row">
+                <span>固件版本</span>
+                <strong id="firmwareValue">esp32-wroom-e-v1</strong>
+              </div>
+              <div class="info-row">
+                <span>WiFi 信号</span>
+                <strong id="signalValue">-58 dBm</strong>
+              </div>
+              <div class="info-row">
+                <span>电池电量</span>
+                <strong id="batteryValue">88%</strong>
+              </div>
+              <div class="info-row">
+                <span>土壤温度</span>
+                <strong id="soilTemperatureValue">22.5°C</strong>
+              </div>
+            </div>
+          </section>
+
+          <section class="panel side-card">
+            <div class="panel-head">
+              <div>
+                <p class="eyebrow">策略输出</p>
+                <h2>建议与风险</h2>
+              </div>
+            </div>
+
+            <div class="strategy-list">
+              <article id="irrigationAdviceCard" class="strategy-card tone-ok">
+                <span>灌溉建议</span>
+                <strong id="irrigationAdvice">维持当前灌溉策略</strong>
+                <p id="irrigationAdviceDetail">等待数据</p>
+              </article>
+              <article id="lightAdviceCard" class="strategy-card tone-ok">
+                <span>补光建议</span>
+                <strong id="lightAdvice">当前补光可维持</strong>
+                <p id="lightAdviceDetail">等待数据</p>
+              </article>
+              <article id="riskAdviceCard" class="strategy-card tone-ok">
+                <span>风险提示</span>
+                <strong id="riskAdvice">整体风险较低</strong>
+                <p id="riskAdviceDetail">等待数据</p>
+              </article>
+            </div>
+          </section>
+
+          <section class="panel side-card">
+            <div class="panel-head">
+              <div>
+                <p class="eyebrow">运行报表</p>
+                <h2>最近 12 次采样</h2>
+              </div>
+            </div>
+
+            <div class="report-grid">
+              <article class="report-card">
+                <span>平均土壤湿度</span>
+                <strong id="reportAvgSoil">--</strong>
+              </article>
+              <article class="report-card">
+                <span>平均光照</span>
+                <strong id="reportAvgLight">--</strong>
+              </article>
+              <article class="report-card">
+                <span>平均气温</span>
+                <strong id="reportAvgTemp">--</strong>
+              </article>
+              <article class="report-card">
+                <span>土壤趋势</span>
+                <strong id="reportTrend">--</strong>
+              </article>
+            </div>
+          </section>
+        </aside>
+
+        <main class="main-column">
+          <section class="metrics-grid">
+            <article class="panel metric-card metric-soil">
+              <div class="metric-head">
+                <span>土壤湿度</span>
+                <small id="soilHint">等待数据</small>
+              </div>
+              <div class="metric-main">
+                <strong id="soilMoistureValue">0</strong>
+                <em>%</em>
+              </div>
+              <div class="meter-track">
+                <span id="soilMeterBar" class="meter-bar soil-bar"></span>
+              </div>
+            </article>
+
+            <article class="panel metric-card metric-light">
+              <div class="metric-head">
+                <span>光照强度</span>
+                <small id="lightHint">等待数据</small>
+              </div>
+              <div class="metric-main">
+                <strong id="lightLuxValue">0</strong>
+                <em>lux</em>
+              </div>
+              <div class="meter-track">
+                <span id="lightMeterBar" class="meter-bar light-bar"></span>
+              </div>
+            </article>
+
+            <article class="panel metric-card metric-temp">
+              <div class="metric-head">
+                <span>空气温度</span>
+                <small id="airTemperatureHint">等待数据</small>
+              </div>
+              <div class="metric-main">
+                <strong id="airTemperatureValue">0</strong>
+                <em>°C</em>
+              </div>
+            </article>
+
+            <article class="panel metric-card metric-humidity">
+              <div class="metric-head">
+                <span>空气湿度</span>
+                <small id="airHumidityHint">等待数据</small>
+              </div>
+              <div class="metric-main">
+                <strong id="airHumidityValue">0</strong>
+                <em>%</em>
+              </div>
+            </article>
+          </section>
+
+          <section class="panel charts-panel">
+            <div class="panel-head split-head">
+              <div>
+                <p class="eyebrow">历史曲线</p>
+                <h2>实时趋势</h2>
+              </div>
+              <p class="panel-desc">用于展示历史曲线 / 报表能力</p>
+            </div>
+
+            <div class="chart-grid">
+              <div class="chart-card">
+                <div class="chart-title-row">
+                  <span>土壤湿度曲线</span>
+                  <strong id="soilChartLabel">0%</strong>
+                </div>
+                <svg id="soilChart" class="chart" viewBox="0 0 320 140" preserveAspectRatio="none"></svg>
+              </div>
+
+              <div class="chart-card">
+                <div class="chart-title-row">
+                  <span>光照曲线</span>
+                  <strong id="lightChartLabel">0 lux</strong>
+                </div>
+                <svg id="lightChart" class="chart" viewBox="0 0 320 140" preserveAspectRatio="none"></svg>
+              </div>
+            </div>
+          </section>
+
+          <div class="lower-grid">
+            <section class="panel config-panel">
+              <div class="panel-head split-head">
+                <div>
+                  <p class="eyebrow">参数配置</p>
+                  <h2>阈值上下限与采样</h2>
+                </div>
+                <p class="panel-desc">对应文档中的参数配置功能</p>
+              </div>
+
+              <div class="config-grid">
+                <label class="field">
+                  <span>土壤湿度下限 (%)</span>
+                  <input id="soilLowInput" type="number" min="0" max="100" />
+                </label>
+                <label class="field">
+                  <span>土壤湿度上限 (%)</span>
+                  <input id="soilHighInput" type="number" min="0" max="100" />
+                </label>
+                <label class="field">
+                  <span>光照下限 (lux)</span>
+                  <input id="lightLowInput" type="number" min="0" max="50000" />
+                </label>
+                <label class="field">
+                  <span>空气湿度下限 (%)</span>
+                  <input id="humidityLowInput" type="number" min="0" max="100" />
+                </label>
+                <label class="field">
+                  <span>温度上限 (°C)</span>
+                  <input id="tempHighInput" type="number" min="-20" max="80" step="0.1" />
+                </label>
+                <label class="field">
+                  <span>采样间隔 (秒)</span>
+                  <input id="sampleIntervalInput" type="number" min="1" max="3600" />
+                </label>
+              </div>
+
+              <div class="panel-actions">
+                <button id="configSubmit" class="button button-primary" type="button">保存参数配置</button>
+              </div>
+            </section>
+
+            <section class="panel control-panel">
+              <div class="panel-head split-head">
+                <div>
+                  <p class="eyebrow">手动控制</p>
+                  <h2>模式 / 泵 / 雾化 / PWM</h2>
+                </div>
+                <p class="panel-desc">对应文档中的手动控制功能</p>
+              </div>
+
+              <div class="control-section">
+                <span class="section-label">模式切换</span>
+                <div class="toggle-row">
+                  <button class="toggle-button" data-key="mode" data-value="auto" type="button">自动模式</button>
+                  <button class="toggle-button" data-key="mode" data-value="manual" type="button">手动模式</button>
+                </div>
+              </div>
+
+              <div class="control-section">
+                <span class="section-label">执行器开关</span>
+                <div class="toggle-grid">
+                  <div>
+                    <label>水泵</label>
+                    <div class="toggle-row compact">
+                      <button class="toggle-button" data-key="pump" data-value="on" type="button">开启</button>
+                      <button class="toggle-button" data-key="pump" data-value="off" type="button">关闭</button>
+                    </div>
+                  </div>
+                  <div>
+                    <label>雾化 / 加湿</label>
+                    <div class="toggle-row compact">
+                      <button class="toggle-button" data-key="mist" data-value="on" type="button">开启</button>
+                      <button class="toggle-button" data-key="mist" data-value="off" type="button">关闭</button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="slider-stack">
+                <div class="slider-card">
+                  <div class="slider-head">
+                    <span>风扇 PWM</span>
+                    <strong id="fanPwmValue">0%</strong>
+                  </div>
+                  <div class="slider-row">
+                    <input id="fanPwmSlider" type="range" min="0" max="100" value="0" />
+                    <button id="fanPwmSubmit" class="button button-secondary" type="button">下发</button>
+                  </div>
+                </div>
+
+                <div class="slider-card">
+                  <div class="slider-head">
+                    <span>补光 PWM</span>
+                    <strong id="growLightPwmValue">65%</strong>
+                  </div>
+                  <div class="slider-row">
+                    <input id="growLightPwmSlider" type="range" min="0" max="100" value="65" />
+                    <button id="growLightPwmSubmit" class="button button-secondary" type="button">下发</button>
+                  </div>
+                </div>
+              </div>
+
+              <div class="state-grid">
+                <article class="state-tile">
+                  <span>水泵状态</span>
+                  <strong id="pumpStateValue">关闭</strong>
+                </article>
+                <article class="state-tile">
+                  <span>雾化状态</span>
+                  <strong id="mistStateValue">关闭</strong>
+                </article>
+                <article class="state-tile">
+                  <span>风扇状态</span>
+                  <strong id="fanStateValue">关闭</strong>
+                </article>
+                <article class="state-tile">
+                  <span>补光状态</span>
+                  <strong id="growLightStateValue">运行中</strong>
+                </article>
+              </div>
+            </section>
+          </div>
+
+          <div class="lower-grid">
+            <section class="panel feed-panel">
+              <div class="panel-head">
+                <div>
+                  <p class="eyebrow">风险提示</p>
+                  <h2>告警列表</h2>
+                </div>
+              </div>
+              <div id="alertsList" class="feed-list"></div>
+            </section>
+
+            <section class="panel feed-panel">
+              <div class="panel-head">
+                <div>
+                  <p class="eyebrow">运行日志</p>
+                  <h2>通信与控制记录</h2>
+                </div>
+              </div>
+              <div id="activityList" class="feed-list"></div>
+            </section>
+          </div>
+        </main>
+      </div>
+    </div>
+
+    <script src="/app.js"></script>
+  </body>
+</html>
