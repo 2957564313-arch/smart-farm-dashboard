@@ -7,8 +7,8 @@
   lastSeen: document.querySelector("#lastSeen"),
   firmwareValue: document.querySelector("#firmwareValue"),
   signalValue: document.querySelector("#signalValue"),
-  batteryValue: document.querySelector("#batteryValue"),
-  soilTemperatureValue: document.querySelector("#soilTemperatureValue"),
+  powerStatusValue: document.querySelector("#powerStatusValue"),
+  extensionStatusValue: document.querySelector("#extensionStatusValue"),
   liveModeValue: document.querySelector("#liveModeValue"),
   tcpQuickStatus: document.querySelector("#tcpQuickStatus"),
   tcpQuickTarget: document.querySelector("#tcpQuickTarget"),
@@ -38,7 +38,7 @@
   soilMoistureValue: document.querySelector("#soilMoistureValue"),
   soilHint: document.querySelector("#soilHint"),
   soilMeterBar: document.querySelector("#soilMeterBar"),
-  lightLuxValue: document.querySelector("#lightLuxValue"),
+  lightValue: document.querySelector("#lightValue"),
   lightHint: document.querySelector("#lightHint"),
   lightMeterBar: document.querySelector("#lightMeterBar"),
   airTemperatureValue: document.querySelector("#airTemperatureValue"),
@@ -63,12 +63,6 @@
   mq2HighInput: document.querySelector("#mq2HighInput"),
   sampleIntervalInput: document.querySelector("#sampleIntervalInput"),
   configSubmit: document.querySelector("#configSubmit"),
-  fanPwmSlider: document.querySelector("#fanPwmSlider"),
-  fanPwmValue: document.querySelector("#fanPwmValue"),
-  fanPwmSubmit: document.querySelector("#fanPwmSubmit"),
-  growLightPwmSlider: document.querySelector("#growLightPwmSlider"),
-  growLightPwmValue: document.querySelector("#growLightPwmValue"),
-  growLightPwmSubmit: document.querySelector("#growLightPwmSubmit"),
   pumpStateValue: document.querySelector("#pumpStateValue"),
   mistStateValue: document.querySelector("#mistStateValue"),
   fanStateValue: document.querySelector("#fanStateValue"),
@@ -199,7 +193,7 @@ function buildPath(values, color, fill) {
 
 function renderCharts(history) {
   const soilValues = history.map((item) => item.soilMoisture);
-  const lightValues = history.map((item) => item.lightValue ?? item.lightLux);
+  const lightValues = history.map((item) => item.lightValue);
   const tempValues = history.map((item) => item.airTemperature);
   const humidityValues = history.map((item) => item.airHumidity);
 
@@ -318,8 +312,8 @@ function updateView(data) {
   els.lastSeen.textContent = formatLastSeen(data.device.lastSeen);
   els.firmwareValue.textContent = data.device.firmware;
   els.signalValue.textContent = valueOrDash(data.device.rssi, (value) => `${value} dBm`);
-  els.batteryValue.textContent = data.sensors.powerStatus || valueOrDash(data.sensors.battery, (value) => `${Math.round(value)}%`);
-  els.soilTemperatureValue.textContent = valueOrDash(data.sensors.soilTemperature, (value) => `${Number(value).toFixed(1)}°C`);
+  els.powerStatusValue.textContent = data.sensors.powerStatus || "外接电源";
+  els.extensionStatusValue.textContent = data.sensors.waterLevel !== undefined ? `水位 ${data.sensors.waterLevel}` : "--";
   renderTcpStatus(data.tcp || {});
 
   els.deviceStatusBadge.textContent = data.device.online ? "设备在线" : "设备离线";
@@ -334,9 +328,9 @@ function updateView(data) {
   els.soilHint.textContent = makeSoilHint(data.sensors.soilMoisture, data.config.soilMoistureLow, data.config.soilMoistureHigh);
   els.soilMeterBar.style.width = `${Math.round(data.sensors.soilMoisture)}%`;
 
-  const lightValue = data.sensors.lightValue ?? data.sensors.lightLux;
-  const lightLow = data.config.lightLow ?? data.config.lightLuxLow;
-  els.lightLuxValue.textContent = Math.round(lightValue);
+  const lightValue = data.sensors.lightValue;
+  const lightLow = data.config.lightLow;
+  els.lightValue.textContent = Math.round(lightValue);
   els.lightHint.textContent = makeLightHint(lightValue, lightLow);
   els.lightMeterBar.style.width = percent(lightValue, 100);
 
@@ -361,11 +355,6 @@ function updateView(data) {
   els.tempHighInput.value = Number(data.config.airTemperatureHigh).toFixed(1);
   els.mq2HighInput.value = Math.round(data.config.mq2High);
   els.sampleIntervalInput.value = Math.round(data.config.sampleIntervalSec);
-
-  els.fanPwmSlider.value = Math.round(data.controls.fanPwm);
-  els.fanPwmValue.textContent = `${Math.round(data.controls.fanPwm)}%`;
-  els.growLightPwmSlider.value = Math.round(data.controls.growLightPwm);
-  els.growLightPwmValue.textContent = `${Math.round(data.controls.growLightPwm)}%`;
 
   els.pumpStateValue.textContent = stateLabel(data.controls.pump);
   els.mistStateValue.textContent = stateLabel(data.controls.mist);
@@ -422,42 +411,6 @@ toggleButtons.forEach((button) => {
       button.disabled = false;
     }
   });
-});
-
-els.fanPwmSlider.addEventListener("input", () => {
-  els.fanPwmValue.textContent = `${els.fanPwmSlider.value}%`;
-});
-
-els.growLightPwmSlider.addEventListener("input", () => {
-  els.growLightPwmValue.textContent = `${els.growLightPwmSlider.value}%`;
-});
-
-els.fanPwmSubmit.addEventListener("click", async () => {
-  els.fanPwmSubmit.disabled = true;
-  try {
-    await postJson("/api/control", {
-      key: "fanPwm",
-      value: Number(els.fanPwmSlider.value)
-    });
-  } catch (error) {
-    alert(error.message);
-  } finally {
-    els.fanPwmSubmit.disabled = false;
-  }
-});
-
-els.growLightPwmSubmit.addEventListener("click", async () => {
-  els.growLightPwmSubmit.disabled = true;
-  try {
-    await postJson("/api/control", {
-      key: "growLightPwm",
-      value: Number(els.growLightPwmSlider.value)
-    });
-  } catch (error) {
-    alert(error.message);
-  } finally {
-    els.growLightPwmSubmit.disabled = false;
-  }
 });
 
 els.configSubmit.addEventListener("click", async () => {

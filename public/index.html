@@ -85,11 +85,11 @@
               </div>
               <div class="info-row">
                 <span>供电状态</span>
-                <strong id="batteryValue">外接电源</strong>
+                <strong id="powerStatusValue">外接电源</strong>
               </div>
               <div class="info-row">
                 <span>扩展传感器</span>
-                <strong id="soilTemperatureValue">--</strong>
+                <strong id="extensionStatusValue">--</strong>
               </div>
             </div>
           </section>
@@ -211,7 +211,7 @@
                 <small id="lightHint">等待数据</small>
               </div>
               <div class="metric-main">
-                <strong id="lightLuxValue">0</strong>
+                <strong id="lightValue">0</strong>
                 <em>值</em>
               </div>
               <div class="meter-track">
@@ -397,30 +397,6 @@
                       <button class="toggle-button" data-key="buzzer" data-value="on" type="button">开启</button>
                       <button class="toggle-button" data-key="buzzer" data-value="off" type="button">关闭</button>
                     </div>
-                  </div>
-                </div>
-              </div>
-
-              <div class="slider-stack">
-                <div class="slider-card">
-                  <div class="slider-head">
-                    <span>风扇 PWM（预留）</span>
-                    <strong id="fanPwmValue">0%</strong>
-                  </div>
-                  <div class="slider-row">
-                    <input id="fanPwmSlider" type="range" min="0" max="100" value="0" />
-                    <button id="fanPwmSubmit" class="button button-secondary" type="button">下发</button>
-                  </div>
-                </div>
-
-                <div class="slider-card">
-                  <div class="slider-head">
-                    <span>补光 PWM（预留）</span>
-                    <strong id="growLightPwmValue">65%</strong>
-                  </div>
-                  <div class="slider-row">
-                    <input id="growLightPwmSlider" type="range" min="0" max="100" value="65" />
-                    <button id="growLightPwmSubmit" class="button button-secondary" type="button">下发</button>
                   </div>
                 </div>
               </div>

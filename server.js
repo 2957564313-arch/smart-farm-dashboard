@@ -159,7 +159,6 @@ function buildSeedHistory() {
     result.push({
       timestamp: new Date(start + i * 60_000).toISOString(),
       lightValue,
-      lightLux: lightValue,
       soilMoisture: clamp(Math.round(baseSoil - i * 0.8 + (i % 2) * 2), 0, 100),
       airTemperature: Number((baseTemp + Math.sin(i / 3) * 0.9).toFixed(1)),
       airHumidity: clamp(Math.round(baseHumidity + Math.cos(i / 3) * 5), 0, 100),
@@ -172,7 +171,7 @@ function buildSeedHistory() {
 
 const state = {
   meta: {
-    title: "智能农业网页控制台",
+    title: "智慧农业监测与控制平台",
     subtitle: "实时数据、参数配置、手动控制、风险提示、历史曲线与运行日志",
     serverStartedAt: nowIso(),
     networkUrls: getLanUrls(PORT)
@@ -187,13 +186,10 @@ const state = {
   },
   sensors: {
     lightValue: 42,
-    lightLux: 42,
     soilMoisture: 57,
     airTemperature: 24.8,
     airHumidity: 63,
     mq2: 280,
-    soilTemperature: null,
-    battery: null,
     powerStatus: "外接电源"
   },
   controls: {
@@ -202,15 +198,12 @@ const state = {
     mist: "off",
     fan: "off",
     growLight: "on",
-    buzzer: "off",
-    fanPwm: 0,
-    growLightPwm: 100
+    buzzer: "off"
   },
   config: {
     soilMoistureLow: 10,
     soilMoistureHigh: 75,
     lightLow: 15,
-    lightLuxLow: 15,
     airHumidityLow: 20,
     airTemperatureHigh: 35,
     mq2High: 800,
@@ -287,7 +280,7 @@ function recentSlope(field, count = 6) {
 function deriveAlerts(snapshot) {
   const alerts = [];
   const online = Date.now() - snapshot.device.lastSeen < DEVICE_TIMEOUT_MS;
-  const lightLow = snapshot.config.lightLow ?? snapshot.config.lightLuxLow;
+  const lightLow = snapshot.config.lightLow;
 
   if (!online) {
     alerts.push({
@@ -360,7 +353,7 @@ function deriveRecommendations(snapshot) {
   const light = snapshot.sensors.lightValue;
   const humidity = snapshot.sensors.airHumidity;
   const config = snapshot.config;
-  const lightLow = config.lightLow ?? config.lightLuxLow;
+  const lightLow = config.lightLow;
 
   let irrigation = {
     tone: "ok",
@@ -440,7 +433,7 @@ function deriveRecommendations(snapshot) {
 function deriveReport(snapshot) {
   const windowedHistory = snapshot.history.slice(-12);
   const soilSeries = windowedHistory.map((item) => item.soilMoisture);
-  const lightSeries = windowedHistory.map((item) => item.lightValue ?? item.lightLux);
+  const lightSeries = windowedHistory.map((item) => item.lightValue);
   const tempSeries = windowedHistory.map((item) => item.airTemperature);
   const humiditySeries = windowedHistory.map((item) => item.airHumidity);
   const mq2Series = windowedHistory.map((item) => item.mq2).filter(Number.isFinite);
@@ -456,7 +449,6 @@ function deriveReport(snapshot) {
   return {
     avgSoilMoisture: Math.round(average(soilSeries)),
     avgLightValue: Math.round(average(lightSeries)),
-    avgLightLux: Math.round(average(lightSeries)),
     avgAirTemperature: Number(average(tempSeries).toFixed(1)),
     avgAirHumidity: Math.round(average(humiditySeries)),
     avgMq2: mq2Series.length ? Math.round(average(mq2Series)) : null,
@@ -509,7 +501,6 @@ function pushHistoryPoint() {
   state.history.push({
     timestamp: nowIso(),
     lightValue: state.sensors.lightValue,
-    lightLux: state.sensors.lightLux,
     soilMoisture: state.sensors.soilMoisture,
     airTemperature: state.sensors.airTemperature,
     airHumidity: state.sensors.airHumidity,
@@ -521,12 +512,8 @@ function pushHistoryPoint() {
   }
 }
 
-function updateSwitchFromPwm(key, pwmKey) {
-  state.controls[key] = state.controls[pwmKey] > 0 ? "on" : "off";
-}
-
 function updateFromSensorPayload(payload, req) {
-  const lightValue = numericValue(payload.lightValue, payload.light, payload.lightLux, payload.lux);
+  const lightValue = numericValue(payload.lightValue, payload.light);
 
   state.device = {
     ...state.device,
@@ -543,10 +530,8 @@ function updateFromSensorPayload(payload, req) {
     airTemperature: numericValue(payload.airTemperature, payload.temp, payload.temperature),
     airHumidity: numericValue(payload.airHumidity, payload.humi, payload.humidity),
     lightValue,
-    lightLux: lightValue,
     mq2: numericValue(payload.mq2, payload.smoke, payload.gas),
-    soilTemperature: numericValue(payload.soilTemperature, payload.soilTemp),
-    battery: numericValue(payload.battery, payload.power)
+    waterLevel: numericValue(payload.waterLevel, payload.water)
   };
 
   for (const [field, value] of Object.entries(normalizedSensors)) {
@@ -573,16 +558,6 @@ function updateFromSensorPayload(payload, req) {
     state.controls.mode = mode;
   }
 
-  if (Number.isFinite(payload.fanPwm)) {
-    state.controls.fanPwm = clamp(Math.round(payload.fanPwm), 0, 100);
-    updateSwitchFromPwm("fan", "fanPwm");
-  }
-
-  if (Number.isFinite(payload.growLightPwm)) {
-    state.controls.growLightPwm = clamp(Math.round(payload.growLightPwm), 0, 100);
-    updateSwitchFromPwm("growLight", "growLightPwm");
-  }
-
   pushHistoryPoint();
   addActivity(
     `${state.device.name} 上传新数据：光照值 ${state.sensors.lightValue}，土壤湿度 ${state.sensors.soilMoisture}% ，空气湿度 ${state.sensors.airHumidity}%`,
@@ -594,7 +569,7 @@ function updateFromSensorPayload(payload, req) {
 function createDemoPayload() {
   const pumpEffect = state.controls.pump === "on" ? 4.6 : -1.2;
   const mistEffect = state.controls.mist === "on" ? 4.2 : -0.9;
-  const fanCooling = state.controls.fanPwm / 100;
+  const fanCooling = state.controls.fan === "on" ? 0.8 : 0;
   const lightBoost = state.controls.growLight === "on" ? 8 : -4;
 
   const lightValue = clamp(
@@ -622,7 +597,6 @@ function createDemoPayload() {
     deviceName: state.device.name,
     firmware: state.device.firmware,
     lightValue,
-    lightLux: lightValue,
     soilMoisture,
     airTemperature,
     airHumidity,
@@ -632,9 +606,7 @@ function createDemoPayload() {
     pump: state.controls.pump,
     mist: state.controls.mist,
     fan: state.controls.fan,
-    fanPwm: state.controls.fanPwm,
     growLight: state.controls.growLight,
-    growLightPwm: state.controls.growLightPwm,
     mode: state.controls.mode
   };
 }
@@ -729,35 +701,11 @@ function validateControl(key, value) {
     return enumMap[key].includes(value);
   }
 
-  if (["fanPwm", "growLightPwm"].includes(key)) {
-    return Number.isFinite(Number(value));
-  }
-
   return false;
 }
 
 function applyControlChange(key, value) {
-  if (key === "fanPwm") {
-    state.controls.fanPwm = clamp(Math.round(Number(value)), 0, 100);
-    updateSwitchFromPwm("fan", "fanPwm");
-    return state.controls.fanPwm;
-  }
-
-  if (key === "growLightPwm") {
-    state.controls.growLightPwm = clamp(Math.round(Number(value)), 0, 100);
-    updateSwitchFromPwm("growLight", "growLightPwm");
-    return state.controls.growLightPwm;
-  }
-
   state.controls[key] = value;
-
-  if (key === "fan") {
-    state.controls.fanPwm = value === "on" && state.controls.fanPwm === 0 ? 60 : value === "off" ? 0 : state.controls.fanPwm;
-  }
-
-  if (key === "growLight") {
-    state.controls.growLightPwm = value === "on" && state.controls.growLightPwm === 0 ? 65 : value === "off" ? 0 : state.controls.growLightPwm;
-  }
 
   return value;
 }
@@ -778,8 +726,7 @@ function sanitizeConfigPatch(payload) {
     humi_min: "airHumidityLow",
     light_min: "lightLow",
     soil_min: "soilMoistureLow",
-    smoke_max: "mq2High",
-    lightLuxLow: "lightLow"
+    smoke_max: "mq2High"
   };
 
   const patch = {};
@@ -830,7 +777,7 @@ function applyConfigPatch(patch) {
   state.config = {
     ...state.config,
     ...patch,
-    lightLuxLow: patch.lightLow ?? state.config.lightLow
+    lightLow: patch.lightLow ?? state.config.lightLow
   };
 }
 
@@ -849,7 +796,6 @@ function parseLegacyHardwareText(rawText) {
       airTemperature: numericValue(fields.temp),
       airHumidity: numericValue(fields.humi),
       lightValue: numericValue(fields.light),
-      lightLux: numericValue(fields.light),
       soilMoisture: numericValue(fields.soil),
       mq2: numericValue(fields.smoke)
     },
@@ -995,7 +941,7 @@ function collectControlChanges(payload) {
   }
 
   const changes = [];
-  const controlKeys = ["mode", "pump", "mist", "fan", "growLight", "buzzer", "fanPwm", "growLightPwm"];
+  const controlKeys = ["mode", "pump", "mist", "fan", "growLight", "buzzer"];
 
   for (const key of controlKeys) {
     if (payload[key] !== undefined) {
@@ -1019,7 +965,7 @@ function buildLegacyConfigCommand(patch = state.config) {
   return [
     `temp_max:${Math.round(nextConfig.airTemperatureHigh)}`,
     `humi_min:${Math.round(nextConfig.airHumidityLow)}`,
-    `light_min:${Math.round(nextConfig.lightLow ?? nextConfig.lightLuxLow)}`,
+    `light_min:${Math.round(nextConfig.lightLow)}`,
     `soil_min:${Math.round(nextConfig.soilMoistureLow)}`,
     `smoke_max:${Math.round(nextConfig.mq2High)}`
   ].join(",");
