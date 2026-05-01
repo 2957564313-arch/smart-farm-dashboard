@@ -10,9 +10,18 @@
   batteryValue: document.querySelector("#batteryValue"),
   soilTemperatureValue: document.querySelector("#soilTemperatureValue"),
   liveModeValue: document.querySelector("#liveModeValue"),
-  fanPwmQuickValue: document.querySelector("#fanPwmQuickValue"),
-  growLightPwmQuickValue: document.querySelector("#growLightPwmQuickValue"),
+  tcpQuickStatus: document.querySelector("#tcpQuickStatus"),
+  tcpQuickTarget: document.querySelector("#tcpQuickTarget"),
+  mq2QuickValue: document.querySelector("#mq2QuickValue"),
   sampleIntervalValue: document.querySelector("#sampleIntervalValue"),
+  tcpTargetValue: document.querySelector("#tcpTargetValue"),
+  tcpStatusValue: document.querySelector("#tcpStatusValue"),
+  tcpLastReceivedValue: document.querySelector("#tcpLastReceivedValue"),
+  tcpRawValue: document.querySelector("#tcpRawValue"),
+  tcpConnectButton: document.querySelector("#tcpConnectButton"),
+  tcpDisconnectButton: document.querySelector("#tcpDisconnectButton"),
+  tcpSendAutoButton: document.querySelector("#tcpSendAutoButton"),
+  tcpSendManualButton: document.querySelector("#tcpSendManualButton"),
   irrigationAdviceCard: document.querySelector("#irrigationAdviceCard"),
   lightAdviceCard: document.querySelector("#lightAdviceCard"),
   riskAdviceCard: document.querySelector("#riskAdviceCard"),
@@ -36,15 +45,22 @@
   airTemperatureHint: document.querySelector("#airTemperatureHint"),
   airHumidityValue: document.querySelector("#airHumidityValue"),
   airHumidityHint: document.querySelector("#airHumidityHint"),
+  mq2Value: document.querySelector("#mq2Value"),
+  mq2Hint: document.querySelector("#mq2Hint"),
   soilChart: document.querySelector("#soilChart"),
   lightChart: document.querySelector("#lightChart"),
+  tempChart: document.querySelector("#tempChart"),
+  humidityChart: document.querySelector("#humidityChart"),
   soilChartLabel: document.querySelector("#soilChartLabel"),
   lightChartLabel: document.querySelector("#lightChartLabel"),
+  tempChartLabel: document.querySelector("#tempChartLabel"),
+  humidityChartLabel: document.querySelector("#humidityChartLabel"),
   soilLowInput: document.querySelector("#soilLowInput"),
   soilHighInput: document.querySelector("#soilHighInput"),
   lightLowInput: document.querySelector("#lightLowInput"),
   humidityLowInput: document.querySelector("#humidityLowInput"),
   tempHighInput: document.querySelector("#tempHighInput"),
+  mq2HighInput: document.querySelector("#mq2HighInput"),
   sampleIntervalInput: document.querySelector("#sampleIntervalInput"),
   configSubmit: document.querySelector("#configSubmit"),
   fanPwmSlider: document.querySelector("#fanPwmSlider"),
@@ -57,6 +73,7 @@
   mistStateValue: document.querySelector("#mistStateValue"),
   fanStateValue: document.querySelector("#fanStateValue"),
   growLightStateValue: document.querySelector("#growLightStateValue"),
+  buzzerStateValue: document.querySelector("#buzzerStateValue"),
   alertsList: document.querySelector("#alertsList"),
   activityList: document.querySelector("#activityList"),
   demoButton: document.querySelector("#demoButton")
@@ -96,8 +113,8 @@ function makeLightHint(value, low) {
   if (value <= low) {
     return "低于补光阈值";
   }
-  if (value >= low + 8000) {
-    return "自然光充足";
+  if (value >= low + 25) {
+    return "光照较充足";
   }
   return "可维持当前补光";
 }
@@ -120,6 +137,23 @@ function makeHumidityHint(value, low) {
     return "湿度较高，注意通风";
   }
   return "湿度处于正常范围";
+}
+
+function makeMq2Hint(value, high) {
+  if (!Number.isFinite(value)) {
+    return "等待数据";
+  }
+  if (value >= high) {
+    return "烟雾浓度偏高";
+  }
+  return "烟雾浓度正常";
+}
+
+function valueOrDash(value, formatter = (item) => item) {
+  if (value === null || value === undefined || value === "" || Number.isNaN(value)) {
+    return "--";
+  }
+  return formatter(value);
 }
 
 function stateLabel(value, kind = "switch") {
@@ -165,10 +199,14 @@ function buildPath(values, color, fill) {
 
 function renderCharts(history) {
   const soilValues = history.map((item) => item.soilMoisture);
-  const lightValues = history.map((item) => item.lightLux);
+  const lightValues = history.map((item) => item.lightValue ?? item.lightLux);
+  const tempValues = history.map((item) => item.airTemperature);
+  const humidityValues = history.map((item) => item.airHumidity);
 
   els.soilChart.innerHTML = buildPath(soilValues, "#8ecb70", "#8ecb70");
   els.lightChart.innerHTML = buildPath(lightValues, "#f0b466", "#f0b466");
+  els.tempChart.innerHTML = buildPath(tempValues, "#63c9cf", "#63c9cf");
+  els.humidityChart.innerHTML = buildPath(humidityValues, "#7fb7ff", "#7fb7ff");
 }
 
 function renderToneCard(card, tone) {
@@ -199,7 +237,7 @@ function renderRecommendations(recommendations) {
 
 function renderReport(report) {
   els.reportAvgSoil.textContent = report.avgSoilMoisture !== undefined ? `${report.avgSoilMoisture}%` : "--";
-  els.reportAvgLight.textContent = report.avgLightLux !== undefined ? `${report.avgLightLux} lux` : "--";
+  els.reportAvgLight.textContent = report.avgLightValue !== undefined ? `${report.avgLightValue}` : "--";
   els.reportAvgTemp.textContent = report.avgAirTemperature !== undefined ? `${Number(report.avgAirTemperature).toFixed(1)}°C` : "--";
   els.reportTrend.textContent = report.soilTrend || "--";
 }
@@ -257,32 +295,50 @@ function updateToggleHighlight(controls) {
   }
 }
 
+function renderTcpStatus(tcp = {}) {
+  const target = `${tcp.host || "192.168.4.1"}:${tcp.port || 8080}`;
+  const label = tcp.connecting ? "连接中" : tcp.connected ? "已连接" : "未连接";
+
+  els.tcpQuickStatus.textContent = label;
+  els.tcpQuickTarget.textContent = target;
+  els.tcpTargetValue.textContent = target;
+  els.tcpStatusValue.textContent = label;
+  els.tcpStatusValue.className = tcp.connected ? "text-ok" : tcp.connecting ? "text-warn" : "text-muted";
+  els.tcpLastReceivedValue.textContent = tcp.lastReceivedAt ? formatLastSeen(tcp.lastReceivedAt) : "--";
+  els.tcpRawValue.textContent = tcp.lastRawData || tcp.lastError || "--";
+
+  els.tcpConnectButton.disabled = Boolean(tcp.connected || tcp.connecting);
+  els.tcpDisconnectButton.disabled = Boolean(!tcp.connected && !tcp.connecting);
+}
+
 function updateView(data) {
   els.deviceName.textContent = data.device.name;
   els.deviceId.textContent = data.device.id;
   els.networkUrls.textContent = data.meta.networkUrls.join(" / ") || window.location.origin;
   els.lastSeen.textContent = formatLastSeen(data.device.lastSeen);
   els.firmwareValue.textContent = data.device.firmware;
-  els.signalValue.textContent = `${data.device.rssi} dBm`;
-  els.batteryValue.textContent = `${Math.round(data.sensors.battery)}%`;
-  els.soilTemperatureValue.textContent = `${Number(data.sensors.soilTemperature).toFixed(1)}°C`;
+  els.signalValue.textContent = valueOrDash(data.device.rssi, (value) => `${value} dBm`);
+  els.batteryValue.textContent = data.sensors.powerStatus || valueOrDash(data.sensors.battery, (value) => `${Math.round(value)}%`);
+  els.soilTemperatureValue.textContent = valueOrDash(data.sensors.soilTemperature, (value) => `${Number(value).toFixed(1)}°C`);
+  renderTcpStatus(data.tcp || {});
 
   els.deviceStatusBadge.textContent = data.device.online ? "设备在线" : "设备离线";
   els.deviceStatusBadge.className = `status-chip ${data.device.online ? "chip-online" : "chip-offline"}`;
   els.commandCountBadge.textContent = `待执行命令 ${data.pendingCommands}`;
 
   els.liveModeValue.textContent = stateLabel(data.controls.mode, "mode");
-  els.fanPwmQuickValue.textContent = `${Math.round(data.controls.fanPwm)}%`;
-  els.growLightPwmQuickValue.textContent = `${Math.round(data.controls.growLightPwm)}%`;
+  els.mq2QuickValue.textContent = valueOrDash(data.sensors.mq2, (value) => `${Math.round(value)}`);
   els.sampleIntervalValue.textContent = `${Math.round(data.config.sampleIntervalSec)} 秒`;
 
   els.soilMoistureValue.textContent = Math.round(data.sensors.soilMoisture);
   els.soilHint.textContent = makeSoilHint(data.sensors.soilMoisture, data.config.soilMoistureLow, data.config.soilMoistureHigh);
   els.soilMeterBar.style.width = `${Math.round(data.sensors.soilMoisture)}%`;
 
-  els.lightLuxValue.textContent = Math.round(data.sensors.lightLux);
-  els.lightHint.textContent = makeLightHint(data.sensors.lightLux, data.config.lightLuxLow);
-  els.lightMeterBar.style.width = percent(data.sensors.lightLux, 50000);
+  const lightValue = data.sensors.lightValue ?? data.sensors.lightLux;
+  const lightLow = data.config.lightLow ?? data.config.lightLuxLow;
+  els.lightLuxValue.textContent = Math.round(lightValue);
+  els.lightHint.textContent = makeLightHint(lightValue, lightLow);
+  els.lightMeterBar.style.width = percent(lightValue, 100);
 
   els.airTemperatureValue.textContent = Number(data.sensors.airTemperature).toFixed(1);
   els.airTemperatureHint.textContent = makeTempHint(data.sensors.airTemperature, data.config.airTemperatureHigh);
@@ -290,14 +346,20 @@ function updateView(data) {
   els.airHumidityValue.textContent = Math.round(data.sensors.airHumidity);
   els.airHumidityHint.textContent = makeHumidityHint(data.sensors.airHumidity, data.config.airHumidityLow);
 
+  els.mq2Value.textContent = valueOrDash(data.sensors.mq2, (value) => Math.round(value));
+  els.mq2Hint.textContent = makeMq2Hint(data.sensors.mq2, data.config.mq2High);
+
   els.soilChartLabel.textContent = `${Math.round(data.sensors.soilMoisture)}%`;
-  els.lightChartLabel.textContent = `${Math.round(data.sensors.lightLux)} lux`;
+  els.lightChartLabel.textContent = `${Math.round(lightValue)}`;
+  els.tempChartLabel.textContent = `${Number(data.sensors.airTemperature).toFixed(1)}°C`;
+  els.humidityChartLabel.textContent = `${Math.round(data.sensors.airHumidity)}%`;
 
   els.soilLowInput.value = Math.round(data.config.soilMoistureLow);
   els.soilHighInput.value = Math.round(data.config.soilMoistureHigh);
-  els.lightLowInput.value = Math.round(data.config.lightLuxLow);
+  els.lightLowInput.value = Math.round(lightLow);
   els.humidityLowInput.value = Math.round(data.config.airHumidityLow);
   els.tempHighInput.value = Number(data.config.airTemperatureHigh).toFixed(1);
+  els.mq2HighInput.value = Math.round(data.config.mq2High);
   els.sampleIntervalInput.value = Math.round(data.config.sampleIntervalSec);
 
   els.fanPwmSlider.value = Math.round(data.controls.fanPwm);
@@ -309,6 +371,7 @@ function updateView(data) {
   els.mistStateValue.textContent = stateLabel(data.controls.mist);
   els.fanStateValue.textContent = stateLabel(data.controls.fan);
   els.growLightStateValue.textContent = stateLabel(data.controls.growLight);
+  els.buzzerStateValue.textContent = stateLabel(data.controls.buzzer);
 
   renderRecommendations(data.recommendations || {});
   renderReport(data.report || {});
@@ -403,9 +466,10 @@ els.configSubmit.addEventListener("click", async () => {
     await postJson("/api/config", {
       soilMoistureLow: Number(els.soilLowInput.value),
       soilMoistureHigh: Number(els.soilHighInput.value),
-      lightLuxLow: Number(els.lightLowInput.value),
+      lightLow: Number(els.lightLowInput.value),
       airHumidityLow: Number(els.humidityLowInput.value),
       airTemperatureHigh: Number(els.tempHighInput.value),
+      mq2High: Number(els.mq2HighInput.value),
       sampleIntervalSec: Number(els.sampleIntervalInput.value)
     });
   } catch (error) {
@@ -425,6 +489,42 @@ els.demoButton.addEventListener("click", async () => {
     els.demoButton.disabled = false;
   }
 });
+
+els.tcpConnectButton.addEventListener("click", async () => {
+  els.tcpConnectButton.disabled = true;
+  try {
+    await postJson("/api/tcp/connect", {});
+  } catch (error) {
+    alert(error.message);
+  } finally {
+    els.tcpConnectButton.disabled = false;
+  }
+});
+
+els.tcpDisconnectButton.addEventListener("click", async () => {
+  els.tcpDisconnectButton.disabled = true;
+  try {
+    await postJson("/api/tcp/disconnect", {});
+  } catch (error) {
+    alert(error.message);
+  } finally {
+    els.tcpDisconnectButton.disabled = false;
+  }
+});
+
+async function sendRawTcpCommand(command, button) {
+  button.disabled = true;
+  try {
+    await postJson("/api/tcp/send", { command });
+  } catch (error) {
+    alert(error.message);
+  } finally {
+    button.disabled = false;
+  }
+}
+
+els.tcpSendAutoButton.addEventListener("click", () => sendRawTcpCommand("Auto", els.tcpSendAutoButton));
+els.tcpSendManualButton.addEventListener("click", () => sendRawTcpCommand("Manual", els.tcpSendManualButton));
 
 bootstrap().catch((error) => {
   console.error(error);

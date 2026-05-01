@@ -3,15 +3,15 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>智能农业网页控制台</title>
+    <title>智慧农业监测与控制平台</title>
     <link rel="stylesheet" href="/styles.css" />
   </head>
   <body>
     <div class="app-shell">
       <header class="app-header panel">
         <div class="header-copy">
-          <p class="eyebrow">SMART IRRIGATION CONTROL</p>
-          <h1>智能农业网页控制台</h1>
+          <p class="eyebrow">SMART FARM CONTROL</p>
+          <h1>智慧农业监测与控制平台</h1>
           <p class="header-note">
             实时数据卡片、参数配置、手动控制、风险提示、建议输出、历史曲线与运行日志
           </p>
@@ -27,8 +27,8 @@
       <section class="summary-grid">
         <article class="panel summary-card summary-card-node">
           <span class="summary-label">在线节点</span>
-          <strong id="deviceName">ESP32-WROOM-E 边缘控制节点</strong>
-          <small id="deviceId">esp32-farm-01</small>
+          <strong id="deviceName">STM32 智慧农业节点</strong>
+          <small id="deviceId">stm32-farm-01</small>
         </article>
 
         <article class="panel summary-card">
@@ -38,15 +38,15 @@
         </article>
 
         <article class="panel summary-card">
-          <span class="summary-label">风扇 PWM</span>
-          <strong id="fanPwmQuickValue">0%</strong>
-          <small>通风执行强度</small>
+          <span class="summary-label">硬件连接</span>
+          <strong id="tcpQuickStatus">未连接</strong>
+          <small id="tcpQuickTarget">192.168.4.1:8080</small>
         </article>
 
         <article class="panel summary-card">
-          <span class="summary-label">补光 PWM</span>
-          <strong id="growLightPwmQuickValue">65%</strong>
-          <small>补光输出强度</small>
+          <span class="summary-label">烟雾 / MQ2</span>
+          <strong id="mq2QuickValue">--</strong>
+          <small>ppm</small>
         </article>
 
         <article class="panel summary-card">
@@ -77,20 +77,59 @@
               </div>
               <div class="info-row">
                 <span>固件版本</span>
-                <strong id="firmwareValue">esp32-wroom-e-v1</strong>
+                <strong id="firmwareValue">STM32/ESP8266 节点</strong>
               </div>
               <div class="info-row">
                 <span>WiFi 信号</span>
                 <strong id="signalValue">-58 dBm</strong>
               </div>
               <div class="info-row">
-                <span>电池电量</span>
-                <strong id="batteryValue">88%</strong>
+                <span>供电状态</span>
+                <strong id="batteryValue">外接电源</strong>
               </div>
               <div class="info-row">
-                <span>土壤温度</span>
-                <strong id="soilTemperatureValue">22.5°C</strong>
+                <span>扩展传感器</span>
+                <strong id="soilTemperatureValue">--</strong>
               </div>
+            </div>
+          </section>
+
+          <section class="panel side-card tcp-card">
+            <div class="panel-head">
+              <div>
+                <p class="eyebrow">TCP 兼容模式</p>
+                <h2>硬件连接</h2>
+              </div>
+            </div>
+
+            <div class="info-list">
+              <div class="info-row">
+                <span>连接方式</span>
+                <strong>TCP 兼容模式</strong>
+              </div>
+              <div class="info-row">
+                <span>目标地址</span>
+                <strong id="tcpTargetValue">192.168.4.1:8080</strong>
+              </div>
+              <div class="info-row">
+                <span>连接状态</span>
+                <strong id="tcpStatusValue">未连接</strong>
+              </div>
+              <div class="info-row">
+                <span>最近接收</span>
+                <strong id="tcpLastReceivedValue">--</strong>
+              </div>
+              <div class="info-row raw-row">
+                <span>原始数据</span>
+                <strong id="tcpRawValue">--</strong>
+              </div>
+            </div>
+
+            <div class="tcp-actions">
+              <button id="tcpConnectButton" class="button button-primary" type="button">连接硬件</button>
+              <button id="tcpDisconnectButton" class="button button-secondary" type="button">断开硬件</button>
+              <button id="tcpSendAutoButton" class="button button-secondary" type="button">发送 Auto</button>
+              <button id="tcpSendManualButton" class="button button-secondary" type="button">发送 Manual</button>
             </div>
           </section>
 
@@ -168,12 +207,12 @@
 
             <article class="panel metric-card metric-light">
               <div class="metric-head">
-                <span>光照强度</span>
+                <span>光照值</span>
                 <small id="lightHint">等待数据</small>
               </div>
               <div class="metric-main">
                 <strong id="lightLuxValue">0</strong>
-                <em>lux</em>
+                <em>值</em>
               </div>
               <div class="meter-track">
                 <span id="lightMeterBar" class="meter-bar light-bar"></span>
@@ -201,6 +240,17 @@
                 <em>%</em>
               </div>
             </article>
+
+            <article class="panel metric-card metric-smoke">
+              <div class="metric-head">
+                <span>烟雾浓度 / MQ2</span>
+                <small id="mq2Hint">等待数据</small>
+              </div>
+              <div class="metric-main">
+                <strong id="mq2Value">0</strong>
+                <em>ppm</em>
+              </div>
+            </article>
           </section>
 
           <section class="panel charts-panel">
@@ -223,10 +273,26 @@
 
               <div class="chart-card">
                 <div class="chart-title-row">
-                  <span>光照曲线</span>
-                  <strong id="lightChartLabel">0 lux</strong>
+                  <span>光照值曲线</span>
+                  <strong id="lightChartLabel">0</strong>
                 </div>
                 <svg id="lightChart" class="chart" viewBox="0 0 320 140" preserveAspectRatio="none"></svg>
+              </div>
+
+              <div class="chart-card">
+                <div class="chart-title-row">
+                  <span>空气温度曲线</span>
+                  <strong id="tempChartLabel">0°C</strong>
+                </div>
+                <svg id="tempChart" class="chart" viewBox="0 0 320 140" preserveAspectRatio="none"></svg>
+              </div>
+
+              <div class="chart-card">
+                <div class="chart-title-row">
+                  <span>空气湿度曲线</span>
+                  <strong id="humidityChartLabel">0%</strong>
+                </div>
+                <svg id="humidityChart" class="chart" viewBox="0 0 320 140" preserveAspectRatio="none"></svg>
               </div>
             </div>
           </section>
@@ -251,8 +317,8 @@
                   <input id="soilHighInput" type="number" min="0" max="100" />
                 </label>
                 <label class="field">
-                  <span>光照下限 (lux)</span>
-                  <input id="lightLowInput" type="number" min="0" max="50000" />
+                  <span>光照下限</span>
+                  <input id="lightLowInput" type="number" min="0" max="9999" />
                 </label>
                 <label class="field">
                   <span>空气湿度下限 (%)</span>
@@ -261,6 +327,10 @@
                 <label class="field">
                   <span>温度上限 (°C)</span>
                   <input id="tempHighInput" type="number" min="-20" max="80" step="0.1" />
+                </label>
+                <label class="field">
+                  <span>烟雾浓度上限 (ppm)</span>
+                  <input id="mq2HighInput" type="number" min="0" max="9999" />
                 </label>
                 <label class="field">
                   <span>采样间隔 (秒)</span>
@@ -277,9 +347,9 @@
               <div class="panel-head split-head">
                 <div>
                   <p class="eyebrow">手动控制</p>
-                  <h2>模式 / 泵 / 雾化 / PWM</h2>
+                  <h2>模式 / 继电器开关</h2>
                 </div>
-                <p class="panel-desc">对应文档中的手动控制功能</p>
+                <p class="panel-desc">兼容旧硬件文本命令</p>
               </div>
 
               <div class="control-section">
@@ -307,13 +377,34 @@
                       <button class="toggle-button" data-key="mist" data-value="off" type="button">关闭</button>
                     </div>
                   </div>
+                  <div>
+                    <label>补光灯</label>
+                    <div class="toggle-row compact">
+                      <button class="toggle-button" data-key="growLight" data-value="on" type="button">开启</button>
+                      <button class="toggle-button" data-key="growLight" data-value="off" type="button">关闭</button>
+                    </div>
+                  </div>
+                  <div>
+                    <label>风扇</label>
+                    <div class="toggle-row compact">
+                      <button class="toggle-button" data-key="fan" data-value="on" type="button">开启</button>
+                      <button class="toggle-button" data-key="fan" data-value="off" type="button">关闭</button>
+                    </div>
+                  </div>
+                  <div>
+                    <label>蜂鸣器</label>
+                    <div class="toggle-row compact">
+                      <button class="toggle-button" data-key="buzzer" data-value="on" type="button">开启</button>
+                      <button class="toggle-button" data-key="buzzer" data-value="off" type="button">关闭</button>
+                    </div>
+                  </div>
                 </div>
               </div>
 
               <div class="slider-stack">
                 <div class="slider-card">
                   <div class="slider-head">
-                    <span>风扇 PWM</span>
+                    <span>风扇 PWM（预留）</span>
                     <strong id="fanPwmValue">0%</strong>
                   </div>
                   <div class="slider-row">
@@ -324,7 +415,7 @@
 
                 <div class="slider-card">
                   <div class="slider-head">
-                    <span>补光 PWM</span>
+                    <span>补光 PWM（预留）</span>
                     <strong id="growLightPwmValue">65%</strong>
                   </div>
                   <div class="slider-row">
@@ -350,6 +441,10 @@
                 <article class="state-tile">
                   <span>补光状态</span>
                   <strong id="growLightStateValue">运行中</strong>
+                </article>
+                <article class="state-tile">
+                  <span>蜂鸣器状态</span>
+                  <strong id="buzzerStateValue">已关闭</strong>
                 </article>
               </div>
             </section>
